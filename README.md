@@ -1,4 +1,4 @@
-# 🚀 Prachar.ai: The Autonomous Marketing Agent for Bharat
+# Prachar.ai: The Autonomous Marketing Agent for Bharat
 
 ![Status](https://img.shields.io/badge/Status-In%20Development-yellow)
 ![Stack](https://img.shields.io/badge/Tech-Next.js%2014%20|%20AWS%20Bedrock%20|%20TypeScript-blue)
