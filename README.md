@@ -24,7 +24,7 @@ Currently operating in **Simulation Mode** for zero-cost infrastructure testing,
 
 ```mermaid
 graph TD
-    Client[Merchant Dashboard<br/>(Next.js Client)] -->|POST /api/generate| API[API Gateway<br/>(Next.js Serverless)]
+    Client[Merchant Dashboard<br>(Next.js Client)] -->|POST /api/generate| API[API Gateway<br/>(Next.js Serverless)]
     API -->|Invoke| Service[Bedrock Service Adapter]
     
     subgraph "AI Logic Layer"
