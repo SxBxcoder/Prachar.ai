@@ -80,11 +80,10 @@ Prachar.ai/
 
 ### Prerequisites
 
-- **Node.js 18+**
+- **Next.js 18+**
 - **npm** or **pnpm**
 
 ### Clone & Install
-
 ```bash
 git clone https://github.com/SxBxcoder/Prachar.ai.git
 cd Prachar.ai/prachar-ai
