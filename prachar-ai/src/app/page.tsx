@@ -80,8 +80,12 @@ export default function Home() {
       
       setTimeout(() => {
         setMarketingCopy(data);
-        if (data.imageUrl) setGeneratedImage(data.imageUrl);
-        // We don't set loading(false) here because we wait for the image to actually load
+        if (data.imageUrl) {
+          setGeneratedImage(data.imageUrl);
+          // If image URL is present (from mock or AWS), stop loading immediately
+          // The image is already generated and hosted
+          setLoading(false);
+        }
       }, 4500);
 
     } catch (error) {
@@ -126,7 +130,7 @@ export default function Home() {
             Create. <span className="text-indigo-500">Dominate.</span>
           </h1>
           <p className="text-lg text-gray-400 max-w-xl mx-auto">
-            The advanced AI engine for Indian commerce. Instant campaigns, zero friction.
+            The AI Creative Director for Campus & Creators.
           </p>
         </motion.div>
 
@@ -144,23 +148,23 @@ export default function Home() {
               
               <div className="space-y-6 relative z-10">
                 <div className="space-y-2">
-                  <label className="text-xs font-mono text-indigo-400 uppercase tracking-wider">Target Business</label>
+                  <label className="text-xs font-mono text-indigo-400 uppercase tracking-wider">Brand / Identity</label>
                   <input
                     type="text"
                     value={businessType}
                     onChange={(e) => setBusinessType(e.target.value)}
-                    placeholder="e.g. Cafe, Gym, Saree Shop"
+                    placeholder="e.g., Tech Club, College Fest, Food Vlogger"
                     className="w-full bg-black/40 border border-white/10 rounded-xl p-4 text-white placeholder-gray-600 focus:outline-none focus:ring-2 focus:ring-indigo-500/50 transition-all"
                   />
                 </div>
 
                 <div className="space-y-2">
-                  <label className="text-xs font-mono text-indigo-400 uppercase tracking-wider">Campaign Focus</label>
+                  <label className="text-xs font-mono text-indigo-400 uppercase tracking-wider">Campaign Goal</label>
                   <input
                     type="text"
                     value={topic}
                     onChange={(e) => setTopic(e.target.value)}
-                    placeholder="e.g. Monsoon Sale, New Launch"
+                    placeholder="e.g., Hype the new Hackathon, Viral Reel idea"
                     className="w-full bg-black/40 border border-white/10 rounded-xl p-4 text-white placeholder-gray-600 focus:outline-none focus:ring-2 focus:ring-indigo-500/50 transition-all"
                   />
                 </div>
@@ -176,8 +180,8 @@ export default function Home() {
                       <Layers className="w-5 h-5 animate-spin" />
                     ) : (
                       <>
-                        <Zap className="w-5 h-5 fill-current" />
-                        INITIATE SEQUENCE
+                        <Sparkles className="w-5 h-5 fill-current" />
+                        ✨ GENERATE CAMPAIGN
                       </>
                     )}
                   </span>
@@ -293,34 +297,35 @@ export default function Home() {
                             src={`${generatedImage}${generatedImage.includes('?') ? '&' : '?'}cache_bust=${refreshKey}`} 
                             alt="Campaign Creative" 
                             className="w-full h-full object-cover"
-                            onLoad={() => setLoading(false)}
                           />
                         )}
 
-                        {/* LOADING OVERLAY WITH GRACE PERIOD */}
-                        <div className="absolute inset-0 flex flex-col items-center justify-center bg-black/80 backdrop-blur-md group-has-[img[complete]]:hidden">
-                          <div className="relative">
-                            <div className="w-16 h-16 border-4 border-indigo-500/20 rounded-full"></div>
-                            <div className="absolute top-0 left-0 w-16 h-16 border-4 border-indigo-500 border-t-transparent rounded-full animate-spin"></div>
-                          </div>
-                          
-                          <div className="mt-6 text-center space-y-2">
-                            <p className="text-xs font-mono text-indigo-400 animate-pulse uppercase tracking-[0.2em]">
-                              {imgEngine === 'flux' ? "Synthesizing 8K Assets" : "Optimizing Visual Stream"}
-                            </p>
-                            <p className="text-[10px] text-gray-500 font-mono">
-                              {imgEngine === 'flux' ? "ESTIMATED ARRIVAL: 15-20 SECONDS" : "SWITCHING TO TURBO FOR SPEED..."}
-                            </p>
-                          </div>
+                        {/* LOADING OVERLAY - Only show when loading is true */}
+                        {loading && (
+                          <div className="absolute inset-0 flex flex-col items-center justify-center bg-black/80 backdrop-blur-md">
+                            <div className="relative">
+                              <div className="w-16 h-16 border-4 border-indigo-500/20 rounded-full"></div>
+                              <div className="absolute top-0 left-0 w-16 h-16 border-4 border-indigo-500 border-t-transparent rounded-full animate-spin"></div>
+                            </div>
+                            
+                            <div className="mt-6 text-center space-y-2">
+                              <p className="text-xs font-mono text-indigo-400 animate-pulse uppercase tracking-[0.2em]">
+                                {imgEngine === 'flux' ? "Synthesizing 8K Assets" : "Optimizing Visual Stream"}
+                              </p>
+                              <p className="text-[10px] text-gray-500 font-mono">
+                                {imgEngine === 'flux' ? "ESTIMATED ARRIVAL: 15-20 SECONDS" : "SWITCHING TO TURBO FOR SPEED..."}
+                              </p>
+                            </div>
 
-                          <div className="absolute bottom-8 px-6 text-center">
-                            <p className="text-[9px] text-gray-600 uppercase tracking-tighter">
-                              {imgEngine === 'flux' 
-                                ? "Waiting for Flux Engine response..." 
-                                : "Turbo Engine engaged for low-latency delivery."}
-                            </p>
+                            <div className="absolute bottom-8 px-6 text-center">
+                              <p className="text-[9px] text-gray-600 uppercase tracking-tighter">
+                                {imgEngine === 'flux' 
+                                  ? "Waiting for Flux Engine response..." 
+                                  : "Turbo Engine engaged for low-latency delivery."}
+                              </p>
+                            </div>
                           </div>
-                        </div>
+                        )}
 
                         <div className="absolute bottom-4 left-4 z-20">
                           <span className="px-2 py-1 rounded bg-black/50 backdrop-blur text-[10px] font-mono border border-white/10 text-indigo-300">

@@ -1,0 +1,27 @@
+# Prachar.ai Backend Dependencies
+# Python 3.11+ compatible
+
+# Web Framework
+fastapi>=0.115.0
+uvicorn[standard]>=0.32.0
+pydantic>=2.10.0
+
+# AWS SDK
+boto3>=1.35.0
+botocore>=1.35.0
+
+# Agentic AI Framework (Strands Agents)
+strands-agents>=1.26.0
+
+# Utilities
+python-dotenv>=1.0.1
+python-multipart>=0.0.12
+
+# Additional dependencies (installed automatically with above packages)
+# - httpx (for API calls)
+# - anyio (async support)
+# - starlette (FastAPI dependency)
+# - typing-extensions (type hints)
+# - pydantic-core (Pydantic dependency)
+# - annotated-types (Pydantic dependency)
+

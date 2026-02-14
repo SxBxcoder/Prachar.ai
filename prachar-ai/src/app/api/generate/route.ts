@@ -1,34 +1,42 @@
 import { NextResponse } from 'next/server';
-import { generateMarketingCopy, generatePoster } from '@/lib/bedrock';
 
-export async function POST(request: Request) {
+export async function POST(req: Request) {
   try {
-    const body = await request.json();
+    const body = await req.json();
     const { business, topic } = body;
 
-    // validation
-    if (!business || !topic) {
-      return NextResponse.json(
-        { error: 'Business and Topic are required' },
-        { status: 400 }
-      );
+    // Construct the "Goal" for the Agent
+    const goal = `Create a campaign for a ${business} focusing on ${topic}`;
+    const userId = "test-user-1"; // Hardcoded for hackathon demo
+
+    // CALL THE PYTHON AGENT (Running locally)
+    const response = await fetch('http://127.0.0.1:8000/api/generate', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({ goal, user_id: userId }),
+    });
+
+    if (!response.ok) {
+      throw new Error(`Python Backend Error: ${response.statusText}`);
     }
 
-    // 1. Generate Text (Gemini or Backup)
-    const strategy = await generateMarketingCopy(topic, business);
+    const data = await response.json();
 
-    // 2. Generate Image (Flux)
-    const imageUrl = await generatePoster(topic, business);
-
-    // 3. Combine and Return
+    // Map Python Agent response to your UI format
     return NextResponse.json({
-      ...strategy, // spreads hook, offer, cta
-      imageUrl // adds the image url
+      hook: data.plan.hook,
+      offer: data.plan.offer,
+      cta: data.plan.cta,
+      captions: data.captions, // Your UI can now display multiple options!
+      imageUrl: data.image_url
     });
+
   } catch (error) {
-    console.error('API Error:', error);
+    console.error("Agent Error:", error);
     return NextResponse.json(
-      { error: 'Failed to generate campaign' },
+      { error: 'Failed to generate campaign via Strands Agent' },
       { status: 500 }
     );
   }
