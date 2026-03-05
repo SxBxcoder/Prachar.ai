@@ -3,10 +3,11 @@ import { NextResponse } from 'next/server';
 export async function POST(req: Request) {
   try {
     const body = await req.json();
-    const { business, topic } = body;
+    const { business, topic, goal, messages } = body;
 
-    // Construct the "Goal" for the Agent
-    const goal = `Create a campaign for a ${business} focusing on ${topic}`;
+    // Support both old format (business + topic) and new format (goal + messages)
+    const campaignGoal = goal || `Create a campaign for a ${business} focusing on ${topic}`;
+    const conversationMessages = messages || [];
     
     // Extract the JWT token sent from your frontend page.tsx
     const authHeader = req.headers.get('Authorization'); 
@@ -19,15 +20,20 @@ export async function POST(req: Request) {
     }
 
     console.log("🚀 Firing payload to AWS Lambda:", apiUrl);
+    console.log("📝 Conversation history:", conversationMessages.length, "messages");
 
-    // CALL THE LIVE AWS LAMBDA AGENT
+    // CALL THE LIVE AWS LAMBDA AGENT with stateful messages
     const response = await fetch(apiUrl, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
         'Authorization': authHeader || '', // Securely pass the Cognito JWT
       },
-      body: JSON.stringify({ goal, user_id: "test-user-1" }), 
+      body: JSON.stringify({ 
+        goal: campaignGoal, 
+        messages: conversationMessages,
+        user_id: "test-user-1" 
+      }), 
     });
 
     if (!response.ok) {
@@ -53,7 +59,10 @@ export async function POST(req: Request) {
       offer: parsedData.plan?.offer || "Offer generation pending...",
       cta: parsedData.plan?.cta || "CTA generation pending...",
       captions: parsedData.captions || [],
-      imageUrl: parsedData.image_url || ""
+      imageUrl: parsedData.image_url || "",
+      messages: parsedData.messages || conversationMessages, // Return updated conversation history
+      campaignId: parsedData.campaignId,
+      status: parsedData.status
     });
 
   } catch (error) {
