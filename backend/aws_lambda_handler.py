@@ -75,33 +75,37 @@ logger.info(f"API Keys configured: Gemini={'✓' if GEMINI_API_KEY else '✗'}, 
 
 
 # ============================================================================
+# SYSTEM PERSONA - THE CREATIVE DIRECTOR
+# ============================================================================
+
+SYSTEM_PROMPT = """You are the Prachar.ai Lead Creative Director. You dominate Indian Gen-Z marketing.
+
+- Tone: Aggressive, elite, high-energy.
+- Language: Masterful Hinglish (Power words: Aukaat, Bawaal, Main Character Energy, Level Up).
+- Strategy: Provide high-conversion viral hooks and strategy first, then assets. Never be 'mid'. Be the brain behind a million-dollar brand.
+
+Your task: Create campaigns that make Indian students feel like main characters. Mix Hindi and English naturally. Use emojis strategically. Be bold, be viral, be unforgettable."""
+
+
+# ============================================================================
 # MODEL CONFIGURATION (4-Tier Diamond Resilience Cascade)
 # ============================================================================
 
-# Tier 1: Google Gemini 1.5 Flash (Primary - Best Quality)
-GEMINI_ENDPOINT = "https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent"
+# Tier 1: Google Gemini 3 Flash Preview (Primary - Best Quality with Reasoning)
+GEMINI_ENDPOINT = "https://generativelanguage.googleapis.com/v1beta/models/gemini-3-flash-preview:generateContent"
 
-# Tier 2: Groq Llama 3 (Secondary - Ultra Fast)
+# Tier 2: Groq GPT-OSS 120B (Secondary - 120B Powerhouse)
 GROQ_ENDPOINT = "https://api.groq.com/openai/v1/chat/completions"
-GROQ_MODEL = "llama-3.3-70b-versatile"
+GROQ_MODEL = "openai/gpt-oss-120b"
 
-# Tier 3: OpenRouter (Tertiary - Free Fallback)
+# Tier 3: OpenRouter Arcee Trinity Large (Tertiary - 400B Creative King)
 OPENROUTER_ENDPOINT = "https://openrouter.ai/api/v1/chat/completions"
-OPENROUTER_MODEL = "meta-llama/llama-3.1-8b-instruct:free"
+OPENROUTER_MODEL = "arcee-ai/trinity-large-preview:free"
 
-# Tier 4: Titanium Shield (Terminal Mock Data)
-TITANIUM_SHIELD = {
-    "hook": "🚀 Ready to dominate your campus?",
-    "offer": "Exclusive Hackathon strategies dropping now!",
-    "cta": "Join the revolution today.",
-    "captions": [
-        "Bhai log, time to build! 💻🔥 #AIforBharat",
-        "From dorm rooms to board rooms. Let's go! 🚀",
-        "Campus fests just got an AI upgrade 🤖✨"
-    ]
-}
+# Tier 4: OpenRouter Llama 3.3 70B (The Shield - Ultra Reliable)
+OPENROUTER_SHIELD_MODEL = "meta-llama/llama-3.3-70b-instruct:free"
 
-logger.info("4-Tier Diamond Resilience Cascade configured")
+logger.info("4-Tier Diamond Resilience Cascade configured with Stateful Agent Architecture")
 
 
 # ============================================================================
@@ -199,31 +203,60 @@ def get_mock_campaign(goal: str) -> Dict[str, Any]:
 
 
 # ============================================================================
-# 4-TIER DIAMOND RESILIENCE CASCADE - Pure REST API Fallback Router
+# 4-TIER DIAMOND RESILIENCE CASCADE - Stateful Agent Architecture
 # ============================================================================
 
-def generate_campaign_with_cascade(goal: str, brand_context: str = "") -> Dict[str, Any]:
+def generate_campaign_with_cascade(goal: str, messages: List[Dict[str, str]] = None, brand_context: str = "") -> Dict[str, Any]:
     """
-    4-Tier Diamond Resilience Cascade for Campaign Generation.
+    4-Tier Diamond Resilience Cascade for Campaign Generation with Stateful Memory.
     
     Uses ONLY Python standard library (urllib) to call external APIs.
     
-    Tier 1: Google Gemini 2.5 Flash (Primary)
-    Tier 2: Groq Llama 3 70B (Secondary)
-    Tier 3: OpenRouter Llama 3 8B (Tertiary)
-    Tier 4: Titanium Shield Mock Data (Terminal)
+    Tier 1: Google Gemini 3 Flash Preview (Primary - Advanced Reasoning)
+    Tier 2: Groq GPT-OSS 120B (Secondary - Powerhouse)
+    Tier 3: OpenRouter Arcee Trinity Large (Tertiary - 400B Creative King)
+    Tier 4: OpenRouter Llama 3.3 70B (The Shield - Ultra Reliable)
     
     Args:
         goal: User's campaign goal
+        messages: Optional conversation history for stateful interactions
         brand_context: Optional brand guidelines
     
     Returns:
-        Dict with keys: hook, offer, cta, captions (list of 3 strings)
+        Dict with keys: hook, offer, cta, captions (list of 3 strings), messages (conversation history)
     """
-    logger.info("🔷 DIAMOND CASCADE INITIATED")
+    logger.info("🔷 DIAMOND CASCADE INITIATED - STATEFUL AGENT MODE")
     logger.info(f"Goal: {goal}")
     
-    # Construct the universal prompt
+    # Initialize messages if not provided
+    if messages is None:
+        messages = []
+    
+    # Construct the user prompt
+    user_prompt = f"""Act as Prachar.ai, an expert AI Creative Director specializing in Hinglish social media content for Indian students and creators.
+
+Goal: {goal}
+
+Brand Context: {brand_context if brand_context else 'No specific brand guidelines. Use general youth-friendly tone.'}
+
+Task: Create a social media campaign with:
+1. hook: An attention-grabbing opening line (Hinglish, 50-80 chars)
+2. offer: The core value proposition (Hinglish, 80-120 chars)
+3. cta: A clear call-to-action (Hinglish, 30-50 chars)
+4. captions: Array of exactly 3 unique Hinglish social media captions (150-200 chars each)
+
+Requirements:
+- Mix Hindi and English naturally (like Indian youth speak)
+- Include relevant emojis (🔥, 💯, ✨, 🎉, 🚀)
+- Be culturally authentic (references to chai, coding, college life, etc.)
+- Engaging and shareable
+- Use power words: Aukaat, Bawaal, Main Character Energy, Level Up
+
+Return ONLY valid JSON with these exact keys: hook, offer, cta, captions (array of 3 strings).
+No markdown, no explanations, just the JSON object."""
+    
+    # Add user message to conversation
+    messages.append({"role": "user", "content": user_prompt})
     prompt = f"""Act as Prachar.ai, an expert AI Creative Director specializing in Hinglish social media content for Indian students and creators.
 
 Goal: {goal}
@@ -246,27 +279,38 @@ Return ONLY valid JSON with these exact keys: hook, offer, cta, captions (array 
 No markdown, no explanations, just the JSON object."""
 
     # ========================================================================
-    # TIER 1: GOOGLE GEMINI 2.5 FLASH (Primary)
+    # TIER 1: GOOGLE GEMINI 3 FLASH PREVIEW (Primary)
     # ========================================================================
     
     try:
-        logger.info("🔷 TIER 1: Attempting Google Gemini 2.5 Flash...")
+        logger.info("🔷 TIER 1: Attempting Google Gemini 3 Flash Preview...")
         
         gemini_api_key = os.environ.get('GEMINI_API_KEY', '')
         
         if not gemini_api_key:
             raise Exception("GEMINI_API_KEY not configured")
         
-        gemini_url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key={gemini_api_key}"
+        gemini_url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-3-flash-preview:generateContent?key={gemini_api_key}"
+        
+        # Convert messages to Gemini format (contents)
+        gemini_contents = []
+        
+        # Add system prompt as first user message for Gemini
+        gemini_contents.append({
+            "role": "user",
+            "parts": [{"text": SYSTEM_PROMPT}]
+        })
+        
+        # Convert conversation history
+        for msg in messages:
+            role = "model" if msg["role"] == "assistant" else "user"
+            gemini_contents.append({
+                "role": role,
+                "parts": [{"text": msg["content"]}]
+            })
         
         gemini_payload = {
-            "contents": [
-                {
-                    "parts": [
-                        {"text": prompt}
-                    ]
-                }
-            ],
+            "contents": gemini_contents,
             "generationConfig": {
                 "responseMimeType": "application/json",
                 "temperature": 0.7,
@@ -296,7 +340,11 @@ No markdown, no explanations, just the JSON object."""
                 # Validate structure
                 if all(key in campaign_data for key in ['hook', 'offer', 'cta', 'captions']):
                     if isinstance(campaign_data['captions'], list) and len(campaign_data['captions']) >= 3:
-                        logger.info("✅ TIER 1 SUCCESS: Gemini 2.5 Flash delivered")
+                        # Add assistant response to messages
+                        messages.append({"role": "assistant", "content": text})
+                        campaign_data['messages'] = messages
+                        
+                        logger.info("✅ TIER 1 SUCCESS: Gemini 3 Flash Preview delivered")
                         return campaign_data
         
         raise Exception("Gemini response structure invalid")
@@ -306,11 +354,11 @@ No markdown, no explanations, just the JSON object."""
         logger.info("→ Cascading to TIER 2...")
     
     # ========================================================================
-    # TIER 2: GROQ LLAMA 3 70B (Secondary Fallback)
+    # TIER 2: GROQ GPT-OSS 120B (Secondary Fallback - Powerhouse)
     # ========================================================================
     
     try:
-        logger.info("🔷 TIER 2: Attempting Groq Llama 3 70B...")
+        logger.info("🔷 TIER 2: Attempting Groq GPT-OSS 120B...")
         
         groq_api_key = os.environ.get('GROQ_API_KEY', '')
         
@@ -319,18 +367,12 @@ No markdown, no explanations, just the JSON object."""
         
         groq_url = "https://api.groq.com/openai/v1/chat/completions"
         
+        # Prepare messages with system prompt
+        groq_messages = [{"role": "system", "content": SYSTEM_PROMPT}] + messages
+        
         groq_payload = {
-            "model": "llama-3.3-70b-versatile",
-            "messages": [
-                {
-                    "role": "system",
-                    "content": "You are Prachar.ai. Return ONLY valid JSON. No markdown, no explanations."
-                },
-                {
-                    "role": "user",
-                    "content": prompt
-                }
-            ],
+            "model": GROQ_MODEL,
+            "messages": groq_messages,
             "response_format": {"type": "json_object"},
             "temperature": 0.7,
             "max_tokens": 1024
@@ -359,7 +401,11 @@ No markdown, no explanations, just the JSON object."""
                 # Validate structure
                 if all(key in campaign_data for key in ['hook', 'offer', 'cta', 'captions']):
                     if isinstance(campaign_data['captions'], list) and len(campaign_data['captions']) >= 3:
-                        logger.info("✅ TIER 2 SUCCESS: Groq Llama 3 70B delivered")
+                        # Add assistant response to messages
+                        messages.append({"role": "assistant", "content": message['content']})
+                        campaign_data['messages'] = messages
+                        
+                        logger.info("✅ TIER 2 SUCCESS: Groq GPT-OSS 120B delivered")
                         return campaign_data
         
         raise Exception("Groq response structure invalid")
@@ -369,11 +415,11 @@ No markdown, no explanations, just the JSON object."""
         logger.info("→ Cascading to TIER 3...")
     
     # ========================================================================
-    # TIER 3: OPENROUTER LLAMA 3 8B (Tertiary Fallback)
+    # TIER 3: OPENROUTER ARCEE TRINITY LARGE (Tertiary - 400B Creative King)
     # ========================================================================
     
     try:
-        logger.info("🔷 TIER 3: Attempting OpenRouter Llama 3 8B...")
+        logger.info("🔷 TIER 3: Attempting OpenRouter Arcee Trinity Large...")
         
         openrouter_api_key = os.environ.get('OPENROUTER_API_KEY', '')
         
@@ -382,18 +428,12 @@ No markdown, no explanations, just the JSON object."""
         
         openrouter_url = "https://openrouter.ai/api/v1/chat/completions"
         
+        # Prepare messages with system prompt
+        openrouter_messages = [{"role": "system", "content": SYSTEM_PROMPT}] + messages
+        
         openrouter_payload = {
-            "model": "meta-llama/llama-3.1-8b-instruct:free",
-            "messages": [
-                {
-                    "role": "system",
-                    "content": "You are Prachar.ai. Return ONLY valid JSON. No markdown, no explanations."
-                },
-                {
-                    "role": "user",
-                    "content": prompt
-                }
-            ],
+            "model": OPENROUTER_MODEL,
+            "messages": openrouter_messages,
             "response_format": {"type": "json_object"},
             "temperature": 0.7,
             "max_tokens": 1024
@@ -424,26 +464,94 @@ No markdown, no explanations, just the JSON object."""
                 # Validate structure
                 if all(key in campaign_data for key in ['hook', 'offer', 'cta', 'captions']):
                     if isinstance(campaign_data['captions'], list) and len(campaign_data['captions']) >= 3:
-                        logger.info("✅ TIER 3 SUCCESS: OpenRouter Llama 3 8B delivered")
+                        # Add assistant response to messages
+                        messages.append({"role": "assistant", "content": message['content']})
+                        campaign_data['messages'] = messages
+                        
+                        logger.info("✅ TIER 3 SUCCESS: OpenRouter Arcee Trinity Large delivered")
                         return campaign_data
         
         raise Exception("OpenRouter response structure invalid")
     
     except Exception as e3:
         logger.warning(f"⚠️ TIER 3 FAILED: {str(e3)}")
-        logger.info("→ Deploying TIER 4 TITANIUM SHIELD...")
+        logger.info("→ Deploying TIER 4 THE SHIELD...")
     
     # ========================================================================
-    # TIER 4: TITANIUM SHIELD (Terminal Mock Data)
+    # TIER 4: LLAMA 3.3 70B - THE SHIELD (Ultra Reliable)
     # ========================================================================
     
-    logger.info("🛡️ TIER 4: TITANIUM SHIELD ACTIVATED")
+    try:
+        logger.info("🛡️ TIER 4: Attempting OpenRouter Llama 3.3 70B (The Shield)...")
+        
+        openrouter_api_key = os.environ.get('OPENROUTER_API_KEY', '')
+        
+        if not openrouter_api_key:
+            raise Exception("OPENROUTER_API_KEY not configured")
+        
+        openrouter_url = "https://openrouter.ai/api/v1/chat/completions"
+        
+        # Prepare messages with system prompt
+        shield_messages = [{"role": "system", "content": SYSTEM_PROMPT}] + messages
+        
+        shield_payload = {
+            "model": OPENROUTER_SHIELD_MODEL,
+            "messages": shield_messages,
+            "response_format": {"type": "json_object"},
+            "temperature": 0.7,
+            "max_tokens": 1024
+        }
+        
+        shield_request = Request(
+            openrouter_url,
+            data=json.dumps(shield_payload).encode('utf-8'),
+            headers={
+                'Authorization': f'Bearer {openrouter_api_key}',
+                'Content-Type': 'application/json',
+                'HTTP-Referer': 'https://prachar.ai',
+                'X-Title': 'Prachar.ai',
+                'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64)'
+            },
+            method='POST'
+        )
+        
+        with urlopen(shield_request, timeout=15) as response:
+            shield_result = json.loads(response.read().decode('utf-8'))
+        
+        # Parse Shield response
+        if 'choices' in shield_result and len(shield_result['choices']) > 0:
+            message = shield_result['choices'][0]['message']
+            if 'content' in message:
+                campaign_data = json.loads(message['content'])
+                
+                # Validate structure
+                if all(key in campaign_data for key in ['hook', 'offer', 'cta', 'captions']):
+                    if isinstance(campaign_data['captions'], list) and len(campaign_data['captions']) >= 3:
+                        # Add assistant response to messages
+                        messages.append({"role": "assistant", "content": message['content']})
+                        campaign_data['messages'] = messages
+                        
+                        logger.info("✅ TIER 4 SUCCESS: Llama 3.3 70B Shield delivered")
+                        return campaign_data
+        
+        raise Exception("Shield response structure invalid")
+    
+    except Exception as e4:
+        logger.warning(f"⚠️ TIER 4 FAILED: {str(e4)}")
+        logger.info("→ Deploying TITANIUM SHIELD MOCK DATA...")
+    
+    # ========================================================================
+    # TITANIUM SHIELD: INTELLIGENT MOCK DATA (Terminal Fallback)
+    # ========================================================================
+    
+    logger.info("🛡️ TITANIUM SHIELD: MOCK DATA ACTIVATED")
     
     # Intelligent mock data based on goal keywords
     goal_lower = goal.lower()
     
+    mock_response = None
     if any(word in goal_lower for word in ['tech', 'hackathon', 'coding', 'ai', 'ml', 'workshop']):
-        return {
+        mock_response = {
             "hook": "🚀 Ready to dominate your campus tech scene?",
             "offer": "Exclusive AI & ML workshop strategies dropping now!",
             "cta": "Join the tech revolution today!",
@@ -454,7 +562,7 @@ No markdown, no explanations, just the JSON object."""
             ]
         }
     elif any(word in goal_lower for word in ['fest', 'festival', 'celebration', 'party', 'event']):
-        return {
+        mock_response = {
             "hook": "🎉 Campus fest season is here, are you ready?",
             "offer": "3 days of music, dance, food, and unlimited fun!",
             "cta": "Book your passes now before they're gone!",
@@ -465,7 +573,7 @@ No markdown, no explanations, just the JSON object."""
             ]
         }
     else:
-        return {
+        mock_response = {
             "hook": "🚀 Ready to dominate your campus?",
             "offer": "Exclusive strategies and opportunities dropping now!",
             "cta": "Join the revolution today!",
@@ -475,6 +583,13 @@ No markdown, no explanations, just the JSON object."""
                 "Campus life just got an upgrade 🤖✨ Miss mat karo, join the movement!"
             ]
         }
+    
+    # Add mock response to messages
+    mock_content = json.dumps(mock_response)
+    messages.append({"role": "assistant", "content": mock_content})
+    mock_response['messages'] = messages
+    
+    return mock_response
 
 
 def parse_captions(text: str) -> List[str]:
@@ -611,6 +726,7 @@ def lambda_handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
         # Extract optional fields
         user_id = payload.get('user_id', 'anonymous')
         brand_context = payload.get('brand_context', '')
+        messages = payload.get('messages', [])  # Extract conversation history
         
         # Extract user context from Cognito if available
         user_context = get_user_context(event)
@@ -625,11 +741,12 @@ def lambda_handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
         # ====================================================================
         
         try:
-            # Execute the Diamond Cascade
+            # Execute the Diamond Cascade with stateful messages
             logger.info(f"Executing Diamond Cascade for goal: {goal}")
+            logger.info(f"Conversation history: {len(messages)} messages")
             
             # Get campaign data from cascade
-            campaign_data = generate_campaign_with_cascade(goal, brand_context)
+            campaign_data = generate_campaign_with_cascade(goal, messages, brand_context)
             
             logger.info("Campaign data generated successfully")
             
@@ -640,6 +757,7 @@ def lambda_handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
                 'cta': campaign_data.get('cta', '')
             }
             captions = campaign_data.get('captions', [])
+            conversation_messages = campaign_data.get('messages', messages)  # Get updated messages
             
             # Get image URL based on goal
             image_url = get_campaign_image(goal)
@@ -663,7 +781,7 @@ def lambda_handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
         # Generate unique campaign ID
         campaign_id = str(uuid.uuid4())
         
-        # Construct campaign record
+        # Construct campaign record with conversation history
         campaign_record = {
             'campaignId': campaign_id,
             'userId': user_id,
@@ -671,6 +789,7 @@ def lambda_handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
             'plan': campaign_plan,
             'captions': captions,
             'image_url': image_url,
+            'messages': conversation_messages,  # Save conversation history
             'status': 'completed',
             'created_at': datetime.utcnow().isoformat()
         }
@@ -679,7 +798,7 @@ def lambda_handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
         try:
             table = dynamodb.Table(DYNAMODB_TABLE)
             table.put_item(Item=campaign_record)
-            logger.info(f"Campaign saved to DynamoDB: {campaign_id}")
+            logger.info(f"Campaign saved to DynamoDB: {campaign_id} with {len(conversation_messages)} messages")
         except ClientError as e:
             logger.error(f"Failed to save campaign to DynamoDB: {str(e)}")
             # Continue execution even if DynamoDB save fails
