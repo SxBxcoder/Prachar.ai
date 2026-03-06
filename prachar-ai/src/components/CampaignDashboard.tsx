@@ -34,64 +34,33 @@ interface CampaignDashboardProps {
 // Advanced JSON Parser - Extracts campaign data from Director's response
 function extractCampaignData(text: string): { campaign: CampaignData | null; displayMessage: string } {
   try {
-    // Try to parse the entire text as JSON first
-    const parsed = JSON.parse(text);
+    let jsonStr = text;
+    const jsonMatch = text.match(/\{[\s\S]*\}/);
+    if (jsonMatch) jsonStr = jsonMatch[0];
     
-    // Check if it has the campaign structure
-    if (parsed.hook || parsed.plan || parsed.captions) {
+    const parsed = JSON.parse(jsonStr);
+    
+    const hook = parsed.plan?.hook || parsed.hook || '';
+    const offer = parsed.plan?.offer || parsed.offer || '';
+    const cta = parsed.plan?.cta || parsed.cta || '';
+    const captions = parsed.captions || [];
+    
+    if (hook || captions.length > 0) {
       const campaign: CampaignData = {
-        plan: parsed.plan || {
-          hook: parsed.hook || '',
-          offer: parsed.offer || '',
-          cta: parsed.cta || ''
-        },
-        captions: parsed.captions || [],
-        image_url: parsed.image_url || parsed.imageUrl,
+        plan: { hook, offer, cta },
+        captions,
+        image_url: parsed.imageUrl || parsed.image_url,
         campaignId: parsed.campaignId,
         status: parsed.status
       };
       
-      return {
-        campaign,
-        displayMessage: '✅ Strategic Campaign Compiled. See the Canvas below.'
-      };
+      return { campaign, displayMessage: '✅ Strategic Campaign Compiled. See the Canvas below.' };
     }
   } catch (e) {
-    // Not valid JSON, try to find JSON within the text using regex
-    const jsonMatch = text.match(/\{[\s\S]*\}/);
-    if (jsonMatch) {
-      try {
-        const parsed = JSON.parse(jsonMatch[0]);
-        
-        if (parsed.hook || parsed.plan || parsed.captions) {
-          const campaign: CampaignData = {
-            plan: parsed.plan || {
-              hook: parsed.hook || '',
-              offer: parsed.offer || '',
-              cta: parsed.cta || ''
-            },
-            captions: parsed.captions || [],
-            image_url: parsed.image_url || parsed.imageUrl,
-            campaignId: parsed.campaignId,
-            status: parsed.status
-          };
-          
-          return {
-            campaign,
-            displayMessage: '✅ Strategic Campaign Compiled. See the Canvas below.'
-          };
-        }
-      } catch (e2) {
-        // Nested JSON parse failed
-      }
-    }
+    console.error("Parse error:", e);
   }
   
-  // No valid campaign JSON found, return text as-is
-  return {
-    campaign: null,
-    displayMessage: text
-  };
+  return { campaign: null, displayMessage: text };
 }
 
 export default function CampaignDashboard({ accessToken, userEmail, onLogout }: CampaignDashboardProps) {
@@ -262,7 +231,7 @@ export default function CampaignDashboard({ accessToken, userEmail, onLogout }: 
       {/* LEFT SIDEBAR - SLIDE-OUT DRAWER ON MOBILE, FIXED ON DESKTOP */}
       <div 
         onClick={(e) => e.stopPropagation()}
-        className={`fixed inset-y-0 left-0 z-50 w-[80%] max-w-[400px] transform transition-transform duration-300 lg:fixed lg:translate-x-0 lg:w-[400px] border-r border-zinc-800 flex flex-col bg-zinc-900 lg:bg-zinc-900/50 backdrop-blur-xl ${
+        className={`fixed inset-y-0 lg:bottom-[44px] left-0 z-50 w-[80%] max-w-[400px] transform transition-transform duration-300 lg:fixed lg:translate-x-0 lg:w-[400px] border-r border-zinc-800 flex flex-col bg-zinc-900 lg:bg-zinc-900/50 backdrop-blur-xl ${
           isMobileSidebarOpen ? 'translate-x-0' : '-translate-x-full lg:translate-x-0'
         }`}
       >
@@ -382,12 +351,6 @@ export default function CampaignDashboard({ accessToken, userEmail, onLogout }: 
                 <Send className="w-5 h-5" />
               </button>
             </div>
-            {isGenerating && (
-              <div className="flex items-center gap-2 text-purple-400 text-xs">
-                <div className="w-2 h-2 rounded-full bg-purple-500 animate-pulse"></div>
-                <span className="font-mono">AI REASONING...</span>
-              </div>
-            )}
           </div>
         </div>
       </div>
@@ -435,6 +398,22 @@ export default function CampaignDashboard({ accessToken, userEmail, onLogout }: 
                       </div>
                     </motion.div>
                   ))}
+                  
+                  {isGenerating && (
+                    <motion.div
+                      initial={{ opacity: 0, y: 10 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      exit={{ opacity: 0, scale: 0.9 }}
+                      className="flex justify-start"
+                    >
+                      <div className="max-w-[85%] lg:max-w-[70%] rounded-2xl p-4 bg-zinc-900 border border-zinc-800 flex items-center gap-3">
+                        <div className="w-4 h-4 rounded-full bg-purple-500/20 flex items-center justify-center animate-pulse">
+                          <div className="w-2 h-2 rounded-full bg-purple-500"></div>
+                        </div>
+                        <span className="text-sm font-mono tracking-widest text-purple-400 animate-pulse">AI REASONING...</span>
+                      </div>
+                    </motion.div>
+                  )}
                 </AnimatePresence>
                 <div ref={chatEndRef} />
               </div>
@@ -571,27 +550,6 @@ export default function CampaignDashboard({ accessToken, userEmail, onLogout }: 
                     </div>
                   )}
 
-                  {/* Visual Asset */}
-                  {currentCampaign.image_url && (
-                    <motion.div
-                      initial={{ opacity: 0, y: 20 }}
-                      animate={{ opacity: 1, y: 0 }}
-                      transition={{ delay: 0.7 }}
-                      className="group relative aspect-video w-full rounded-2xl overflow-hidden border border-zinc-800 hover:border-indigo-500/50 transition-all"
-                    >
-                      <img
-                        src={currentCampaign.image_url}
-                        alt="Campaign Visual"
-                        className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
-                      />
-                      <div className="absolute inset-0 bg-gradient-to-b from-transparent via-transparent to-black/50 opacity-0 group-hover:opacity-100 transition-opacity"></div>
-                      <div className="absolute bottom-4 left-4 opacity-0 group-hover:opacity-100 transition-opacity">
-                        <span className="px-3 py-1 rounded-full bg-black/70 backdrop-blur text-xs font-mono text-indigo-300 border border-indigo-500/30">
-                          VISUAL ASSET
-                        </span>
-                      </div>
-                    </motion.div>
-                  )}
                 </motion.div>
               )}
             </div>
@@ -622,20 +580,14 @@ export default function CampaignDashboard({ accessToken, userEmail, onLogout }: 
                 <Send className="w-5 h-5" />
               </button>
             </div>
-            {isGenerating && (
-              <div className="flex items-center gap-2 text-purple-400 text-xs">
-                <div className="w-2 h-2 rounded-full bg-purple-500 animate-pulse"></div>
-                <span className="font-mono">AI REASONING...</span>
-              </div>
-            )}
           </div>
         </div>
       </div>
 
       {/* Status Bar - Desktop Only */}
-      <div className="hidden lg:flex border-t border-zinc-800 bg-zinc-900/80 backdrop-blur-xl px-6 py-3 items-center justify-between text-xs font-mono relative z-20">
-        <div className="flex items-center gap-6">
-          <div className="flex items-center gap-2">
+      <div className="hidden lg:flex fixed bottom-0 left-0 right-0 h-[44px] z-[60] border-t border-zinc-800 bg-zinc-900/95 backdrop-blur-xl px-6 items-center justify-between text-xs font-mono overflow-hidden">
+        <div className="flex items-center gap-6 shrink-0">
+          <div className="flex items-center gap-2 shrink-0">
             <Activity className="w-3 h-3 text-indigo-400" />
             <span className="text-zinc-500">TIER:</span>
             <span className={`font-bold ${
@@ -648,7 +600,7 @@ export default function CampaignDashboard({ accessToken, userEmail, onLogout }: 
             </span>
           </div>
           
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-2 shrink-0">
             <Database className="w-3 h-3 text-purple-400" />
             <span className="text-zinc-500">DB_SYNC:</span>
             <span className={`font-bold ${
@@ -658,19 +610,19 @@ export default function CampaignDashboard({ accessToken, userEmail, onLogout }: 
             </span>
           </div>
           
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-2 shrink-0">
             <Globe className="w-3 h-3 text-cyan-400" />
             <span className="text-zinc-500">REGION:</span>
             <span className="text-cyan-400 font-bold">{systemStatus.region}</span>
           </div>
         </div>
 
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-2 shrink-0">
           <div className="relative flex h-2 w-2">
             <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-green-400 opacity-75"></span>
             <span className="relative inline-flex rounded-full h-2 w-2 bg-green-500"></span>
           </div>
-          <span className="text-zinc-500">PRACHAR.AI // ONLINE</span>
+          <span className="text-zinc-500 whitespace-nowrap">PRACHAR.AI // ONLINE</span>
         </div>
       </div>
     </div>

@@ -1,21 +1,24 @@
 """
 AWS Lambda Handler for Prachar.ai - Enterprise-Grade Campaign Generation
-4-TIER DIAMOND RESILIENCE CASCADE - Production Version
+6-TIER DIAMOND RESILIENCE CASCADE - Production Version
 
 This module serves as the ONLY entry point for AWS Lambda, handling API Gateway requests
 and orchestrating the autonomous AI Creative Director workflow.
 
 Architecture:
-- 4-Tier Diamond Resilience Cascade (Gemini → Groq → OpenRouter → Mock)
+- 6-Tier Diamond Resilience Cascade (Gemini x2 → Groq → OpenRouter x2 → Mock)
 - Pure REST API calls using Python standard library (urllib)
 - Zero third-party AI SDK dependencies
+- Live AI image generation via Pollinations.ai
 - Global safety net with high-quality mock data
 - 100% uptime guarantee for demos
 
-Tier 1: Google Gemini 2.5 Flash (Primary - Best Quality)
-Tier 2: Groq Llama 3 70B (Secondary - Ultra Fast)
-Tier 3: OpenRouter Llama 3 8B (Tertiary - Free Fallback)
-Tier 4: Titanium Shield Mock Data (Terminal - 100% Reliability)
+Tier 1: Google Gemini 3 Flash Preview (Primary Key 1)
+Tier 2: Google Gemini 3 Flash Preview (Primary Key 2 - Rotation)
+Tier 3: Groq GPT-OSS 120B (Secondary - Ultra Fast)
+Tier 4: OpenRouter Arcee Trinity Large (Tertiary - 400B Creative)
+Tier 5: OpenRouter Llama 3.3 70B (The Shield - Ultra Reliable)
+Tier 6: Titanium Shield Mock Data (Terminal - 100% Reliability)
 
 Author: Team NEONX
 Project: Prachar.ai - AI for Bharat Hackathon
@@ -26,6 +29,8 @@ import os
 import logging
 import base64
 import uuid
+import urllib.parse
+import hashlib
 from typing import Dict, Any, Optional, List
 from datetime import datetime
 from urllib.request import Request, urlopen
@@ -67,13 +72,14 @@ except Exception as e:
 DYNAMODB_TABLE = os.environ.get('DYNAMODB_TABLE_NAME', 'prachar-campaigns')
 S3_BUCKET = os.environ.get('S3_BUCKET_NAME', 'prachar-assets-kiit-2026')
 
-# 4-Tier Diamond Resilience Cascade API Keys
+# 6-Tier Diamond Resilience Cascade API Keys
 GEMINI_API_KEY = os.environ.get('GEMINI_API_KEY', '')
+GEMINI_API_KEY_2 = os.environ.get('GEMINI_API_KEY_2', '')
 GROQ_API_KEY = os.environ.get('GROQ_API_KEY', '')
 OPENROUTER_API_KEY = os.environ.get('OPENROUTER_API_KEY', '')
 
 logger.info(f"Environment configuration loaded: DynamoDB={DYNAMODB_TABLE}, S3={S3_BUCKET}")
-logger.info(f"API Keys configured: Gemini={'✓' if GEMINI_API_KEY else '✗'}, Groq={'✓' if GROQ_API_KEY else '✗'}, OpenRouter={'✓' if OPENROUTER_API_KEY else '✗'}")
+logger.info(f"API Keys configured: Gemini1={'✓' if GEMINI_API_KEY else '✗'}, Gemini2={'✓' if GEMINI_API_KEY_2 else '✗'}, Groq={'✓' if GROQ_API_KEY else '✗'}, OpenRouter={'✓' if OPENROUTER_API_KEY else '✗'}")
 
 
 # ============================================================================
@@ -82,32 +88,44 @@ logger.info(f"API Keys configured: Gemini={'✓' if GEMINI_API_KEY else '✗'}, 
 
 SYSTEM_PROMPT = """You are the Prachar.ai Lead Creative Director. You dominate Indian Gen-Z marketing.
 
-- Tone: Aggressive, elite, high-energy.
-- Language: Masterful Hinglish (Power words: Aukaat, Bawaal, Main Character Energy, Level Up).
-- Strategy: Provide high-conversion viral hooks and strategy first, then assets. Never be 'mid'. Be the brain behind a million-dollar brand.
+TONE: Aggressive, elite, high-energy. Never be "mid" (mediocre).
+LANGUAGE: Masterful Hinglish (40-60% Hindi, 60-40% English)
+POWER WORDS (MUST USE): Aukaat, Bawaal, Main Character Energy, Level Up.
+EMOJIS: 🔥, 💯, ✨, 🎉, 🚀
 
-Your task: Create campaigns that make Indian students feel like main characters. Mix Hindi and English naturally. Use emojis strategically. Be bold, be viral, be unforgettable."""
+OUTPUT FORMAT: You MUST return valid JSON with this exact structure:
+{
+  "hook": "Attention-grabbing opening (Hinglish, 50-80 chars)",
+  "offer": "Value proposition (Hinglish, 80-120 chars)",
+  "cta": "Clear action with urgency (Hinglish, 30-50 chars)",
+  "captions": ["Caption 1 (150-200 chars)", "Caption 2 (150-200 chars)", "Caption 3 (150-200 chars)"],
+  "image_prompt": "A highly detailed, visual description of a photorealistic image for this campaign (English, 100-150 chars)"
+}
+
+CRITICAL: The image_prompt must be in English, highly detailed, and describe a photorealistic scene that captures the campaign's energy."""
 
 
 # ============================================================================
-# MODEL CONFIGURATION (4-Tier Diamond Resilience Cascade)
+# MODEL CONFIGURATION (6-Tier Diamond Resilience Cascade)
 # ============================================================================
 
-# Tier 1: Google Gemini 3 Flash Preview (Primary - Best Quality with Reasoning)
+# Tier 1 & 2: Google Gemini 3 Flash Preview (Primary with Key Rotation)
 GEMINI_ENDPOINT = "https://generativelanguage.googleapis.com/v1beta/models/gemini-3-flash-preview:generateContent"
 
-# Tier 2: Groq GPT-OSS 120B (Secondary - 120B Powerhouse)
+# Tier 3: Groq GPT-OSS 120B (Secondary - 120B Powerhouse)
 GROQ_ENDPOINT = "https://api.groq.com/openai/v1/chat/completions"
 GROQ_MODEL = "openai/gpt-oss-120b"
 
-# Tier 3: OpenRouter Arcee Trinity Large (Tertiary - 400B Creative King)
+# Tier 4: OpenRouter Arcee Trinity Large (Tertiary - 400B Creative King)
 OPENROUTER_ENDPOINT = "https://openrouter.ai/api/v1/chat/completions"
 OPENROUTER_MODEL = "arcee-ai/trinity-large-preview:free"
 
-# Tier 4: OpenRouter Llama 3.3 70B (The Shield - Ultra Reliable)
+# Tier 5: OpenRouter Llama 3.3 70B (The Shield - Ultra Reliable)
 OPENROUTER_SHIELD_MODEL = "meta-llama/llama-3.3-70b-instruct:free"
 
-logger.info("4-Tier Diamond Resilience Cascade configured with Stateful Agent Architecture")
+# Tier 6: Titanium Shield Mock Data (Terminal Fallback)
+
+logger.info("6-Tier Diamond Resilience Cascade configured with Live AI Image Generation")
 
 
 # ============================================================================
@@ -128,56 +146,48 @@ CORS_HEADERS = {
 
 MOCK_CAMPAIGNS = {
     "tech": {
-        "plan": {
-            "hook": "Arre tech enthusiasts, ready for the biggest innovation fest? 🚀",
-            "offer": "3 days of workshops, hackathons, and networking with industry leaders",
-            "cta": "Register now - limited seats available!"
-        },
+        "hook": "Arre tech enthusiasts, ready for the biggest innovation fest? 🚀",
+        "offer": "3 days of workshops, hackathons, and networking with industry leaders",
+        "cta": "Register now - limited seats available!",
         "captions": [
             "🔥 Tech fest aa raha hai! AI, ML, Web3 - sab kuch seekho. Register karo abhi! 💻✨",
             "Arre coders, yeh opportunity miss mat karo! 3 din ka tech extravaganza. Join karo! 🚀💯",
             "Innovation ka maha-utsav! Workshops, prizes, aur networking. Seats limited hai! 🎯🔥"
         ],
-        "image_url": "https://images.unsplash.com/photo-1540575467063-178a50c2df87?w=1024&h=1024&fit=crop"
+        "image_prompt": "Vibrant tech conference with young Indian students coding on laptops, holographic AI displays, neon lights, futuristic atmosphere"
     },
     "fest": {
-        "plan": {
-            "hook": "College fest season is here! Get ready for the ultimate celebration 🎉",
-            "offer": "Music, dance, food, and unlimited fun with your squad",
-            "cta": "Book your passes now before they're gone!"
-        },
+        "hook": "College fest season is here! Get ready for the ultimate celebration 🎉",
+        "offer": "Music, dance, food, and unlimited fun with your squad",
+        "cta": "Book your passes now before they're gone!",
         "captions": [
             "🎉 College fest ka maza loot lo! Music, dance, food - sab kuch ek jagah. Passes book karo! 🔥",
             "Arre yaar, fest aa raha hai! Squad ke saath unlimited masti. Miss mat karna! 💯✨",
             "Celebration time! Best performances, amazing food, aur dhamaal. Register abhi! 🚀🎊"
         ],
-        "image_url": "https://images.unsplash.com/photo-1492684223066-81342ee5ff30?w=1024&h=1024&fit=crop"
+        "image_prompt": "Energetic college festival with colorful stage lights, crowd of excited Indian students dancing, food stalls, vibrant celebration"
     },
     "workshop": {
-        "plan": {
-            "hook": "Level up your skills with hands-on learning! 💪",
-            "offer": "Expert-led workshop with certificates and real-world projects",
-            "cta": "Enroll today - Early bird discount available!"
-        },
+        "hook": "Level up your skills with hands-on learning!  ",
+        "offer": "Expert-led workshop with certificates and real-world projects",
+        "cta": "Enroll today - Early bird discount available!",
         "captions": [
             "🎓 Skill upgrade ka time! Expert teachers, real projects, certificate bhi milega. Enroll karo! 💯",
-            "Arre bhai, workshop join karo aur pro ban jao! Hands-on learning guaranteed. Register now! 🚀",
+            "Arre bhai, workshop join karo aur pro ban jao! Hands-on learning guaranteed. Register now!  ",
             "Career boost chahiye? Yeh workshop perfect hai! Limited seats, jaldi karo! 🔥✨"
         ],
-        "image_url": "https://images.unsplash.com/photo-1524178232363-1fb2b075b655?w=1024&h=1024&fit=crop"
+        "image_prompt": "Professional workshop setting with Indian students learning at modern desks, instructor presenting on screen, collaborative atmosphere"
     },
     "default": {
-        "plan": {
-            "hook": "Something amazing is coming your way! 🌟",
-            "offer": "Exclusive opportunity for students and creators",
-            "cta": "Join us now and be part of something special!"
-        },
+        "hook": "Something amazing is coming your way! 🌟",
+        "offer": "Exclusive opportunity for students and creators",
+        "cta": "Join us now and be part of something special!",
         "captions": [
             "🔥 Kuch naya aur exciting aa raha hai! Students ke liye special opportunity. Join karo! 💯",
             "Arre yaar, yeh chance miss mat karo! Ekdum mast experience hoga. Register abhi! ✨🚀",
-            "Special offer for you! Limited time hai, jaldi action lo. Let's go! 🎯🔥"
+            "Special offer for you! Limited time hai, jaldi action lo. Let's go!  🔥"
         ],
-        "image_url": "https://images.unsplash.com/photo-1557804506-669a67965ba0?w=1024&h=1024&fit=crop"
+        "image_prompt": "Dynamic group of diverse Indian students celebrating success, modern campus background, energetic and inspiring atmosphere"
     }
 }
 
@@ -190,11 +200,11 @@ def get_mock_campaign(goal: str) -> Dict[str, Any]:
         goal: User's campaign goal
     
     Returns:
-        Mock campaign with plan, captions, and image
+        Mock campaign with hook, offer, cta, captions, and image_prompt
     """
     goal_lower = goal.lower()
     
-    if any(word in goal_lower for word in ['tech', 'hackathon', 'coding', 'ai', 'ml', 'workshop']):
+    if any(word in goal_lower for word in ['tech', 'hackathon', 'coding', 'ai', 'ml']):
         return MOCK_CAMPAIGNS['tech']
     elif any(word in goal_lower for word in ['fest', 'festival', 'celebration', 'party', 'event']):
         return MOCK_CAMPAIGNS['fest']
@@ -205,7 +215,7 @@ def get_mock_campaign(goal: str) -> Dict[str, Any]:
 
 
 # ============================================================================
-# 4-TIER DIAMOND RESILIENCE CASCADE - Stateful Agent Architecture
+# 6-TIER DIAMOND RESILIENCE CASCADE - Pure Stateless with Live AI Images
 # ============================================================================
 
 def generate_campaign_with_cascade(goal: str, messages: List[Dict[str, str]] = None, brand_context: str = "") -> Dict[str, Any]:
@@ -236,16 +246,16 @@ def generate_campaign_with_cascade(goal: str, messages: List[Dict[str, str]] = N
     # For MVP: Ignore messages array, use fresh one-shot prompts only
     # Messages are passed through to DynamoDB without being fed to LLMs
     
-    logger.info("Using pure stateless generation (no conversation history)")
+    logger.info("Using pure stateless generation with live AI image generation")
 
     # ========================================================================
-    # TIER 1: GOOGLE GEMINI 3 FLASH PREVIEW (Primary)
+    # TIER 1: GOOGLE GEMINI 3 FLASH PREVIEW (Primary Key 1)
     # ========================================================================
     
     try:
-        logger.info("🔷 TIER 1: Attempting Google Gemini 3 Flash Preview...")
+        logger.info("🔷 TIER 1: Attempting Google Gemini 3 Flash Preview (Key 1)...")
         
-        gemini_api_key = os.environ.get('GEMINI_API_KEY', '')
+        gemini_api_key = GEMINI_API_KEY
         
         if not gemini_api_key:
             raise Exception("GEMINI_API_KEY not configured")
@@ -256,7 +266,7 @@ def generate_campaign_with_cascade(goal: str, messages: List[Dict[str, str]] = N
         gemini_contents = [{
             "role": "user",
             "parts": [{
-                "text": SYSTEM_PROMPT + f"\n\nTask: Create a viral Hinglish social media campaign for the following goal: {goal}\n\nReturn ONLY valid JSON with keys: hook, offer, cta, captions (array of 3)."
+                "text": SYSTEM_PROMPT + f"\n\nTask: Create a viral Hinglish social media campaign for the following goal: {goal}\n\nReturn ONLY valid JSON with keys: hook, offer, cta, captions (array of 3), image_prompt."
             }]
         }]
         
@@ -265,7 +275,7 @@ def generate_campaign_with_cascade(goal: str, messages: List[Dict[str, str]] = N
             "generationConfig": {
                 "responseMimeType": "application/json",
                 "temperature": 0.7,
-                "maxOutputTokens": 1024
+                "maxOutputTokens": 2048
             }
         }
         
@@ -276,12 +286,77 @@ def generate_campaign_with_cascade(goal: str, messages: List[Dict[str, str]] = N
             method='POST'
         )
         
-        with urlopen(gemini_request, timeout=25) as response:
+        with urlopen(gemini_request, timeout=60) as response:
             gemini_result = json.loads(response.read().decode('utf-8'))
         
         # Parse Gemini response
         if 'candidates' in gemini_result and len(gemini_result['candidates']) > 0:
             content = gemini_result['candidates'][0]['content']
+            if 'parts' in content and len(content['parts']) > 0:
+                text = content['parts'][0]['text']
+                
+                # Parse JSON from text
+                campaign_data = json.loads(text)
+                
+                # Validate structure (image_prompt optional for backward compatibility)
+                if all(key in campaign_data for key in ['hook', 'offer', 'cta', 'captions']):
+                    if isinstance(campaign_data['captions'], list) and len(campaign_data['captions']) >= 3:
+                        # Pass messages through without mutation
+                        campaign_data['messages'] = messages if messages else []
+                        
+                        logger.info("✅ TIER 1 SUCCESS: Gemini 3 Flash Preview (Key 1) delivered")
+                        return campaign_data
+        
+        raise Exception("Gemini Tier 1 response structure invalid")
+    
+    except Exception as e1:
+        logger.warning(f"⚠️ TIER 1 FAILED: {str(e1)}")
+        logger.info("→ Cascading to TIER 2...")
+    
+    # ========================================================================
+    # TIER 2: GOOGLE GEMINI 3 FLASH PREVIEW (Primary Key 2 - Rotation)
+    # ========================================================================
+    
+    try:
+        logger.info("🔷 TIER 2: Attempting Google Gemini 3 Flash Preview (Key 2)...")
+        
+        gemini_api_key_2 = GEMINI_API_KEY_2
+        
+        if not gemini_api_key_2:
+            raise Exception("GEMINI_API_KEY_2 not configured")
+        
+        gemini_url_2 = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-3-flash-preview:generateContent?key={gemini_api_key_2}"
+        
+        # Pure stateless prompt for Gemini (Key 2)
+        gemini_contents_2 = [{
+            "role": "user",
+            "parts": [{
+                "text": SYSTEM_PROMPT + f"\n\nTask: Create a viral Hinglish social media campaign for the following goal: {goal}\n\nReturn ONLY valid JSON with keys: hook, offer, cta, captions (array of 3), image_prompt."
+            }]
+        }]
+        
+        gemini_payload_2 = {
+            "contents": gemini_contents_2,
+            "generationConfig": {
+                "responseMimeType": "application/json",
+                "temperature": 0.7,
+                "maxOutputTokens": 2048
+            }
+        }
+        
+        gemini_request_2 = Request(
+            gemini_url_2,
+            data=json.dumps(gemini_payload_2).encode('utf-8'),
+            headers={'Content-Type': 'application/json'},
+            method='POST'
+        )
+        
+        with urlopen(gemini_request_2, timeout=60) as response:
+            gemini_result_2 = json.loads(response.read().decode('utf-8'))
+        
+        # Parse Gemini response
+        if 'candidates' in gemini_result_2 and len(gemini_result_2['candidates']) > 0:
+            content = gemini_result_2['candidates'][0]['content']
             if 'parts' in content and len(content['parts']) > 0:
                 text = content['parts'][0]['text']
                 
@@ -294,41 +369,41 @@ def generate_campaign_with_cascade(goal: str, messages: List[Dict[str, str]] = N
                         # Pass messages through without mutation
                         campaign_data['messages'] = messages if messages else []
                         
-                        logger.info("✅ TIER 1 SUCCESS: Gemini 3 Flash Preview delivered")
+                        logger.info("✅ TIER 2 SUCCESS: Gemini 3 Flash Preview (Key 2) delivered")
                         return campaign_data
         
-        raise Exception("Gemini response structure invalid")
+        raise Exception("Gemini Tier 2 response structure invalid")
     
-    except Exception as e1:
-        logger.warning(f"⚠️ TIER 1 FAILED: {str(e1)}")
-        logger.info("→ Cascading to TIER 2...")
+    except Exception as e2:
+        logger.warning(f"⚠️ TIER 2 FAILED: {str(e2)}")
+        logger.info("→ Cascading to TIER 3...")
     
     # ========================================================================
-    # TIER 2: GROQ GPT-OSS 120B (Secondary Fallback - Powerhouse)
+    # TIER 3: GROQ GPT-OSS 120B (Secondary Fallback - Powerhouse)
     # ========================================================================
     
     try:
-        logger.info("🔷 TIER 2: Attempting Groq GPT-OSS 120B...")
+        logger.info("🔷 TIER 3: Attempting Groq GPT-OSS 120B...")
         
-        groq_api_key = os.environ.get('GROQ_API_KEY', '')
+        groq_api_key = GROQ_API_KEY
         
         if not groq_api_key:
             raise Exception("GROQ_API_KEY not configured")
         
         groq_url = "https://api.groq.com/openai/v1/chat/completions"
         
-        # Pure stateless prompt for Groq
-        api_messages = [
+        # Pure stateless prompt for Groq (NO message history to prevent HTTP 400)
+        stateless_messages = [
             {"role": "system", "content": SYSTEM_PROMPT},
-            {"role": "user", "content": f"Task: Create a viral Hinglish social media campaign for the following goal: {goal}\n\nReturn ONLY valid JSON with keys: hook, offer, cta, captions (array of 3)."}
+            {"role": "user", "content": f"Task: Create a viral Hinglish social media campaign for the following goal: {goal}\n\nReturn ONLY valid JSON with keys: hook, offer, cta, captions (array of 3), image_prompt."}
         ]
         
         groq_payload = {
-            "model": GROQ_MODEL,
-            "messages": api_messages,
+            "model": "openai/gpt-oss-120b",
+            "messages": stateless_messages,
             "response_format": {"type": "json_object"},
             "temperature": 0.7,
-            "max_tokens": 1024
+            "max_tokens": 2048
         }
         
         groq_request = Request(
@@ -342,7 +417,7 @@ def generate_campaign_with_cascade(goal: str, messages: List[Dict[str, str]] = N
             method='POST'
         )
         
-        with urlopen(groq_request, timeout=25) as response:
+        with urlopen(groq_request, timeout=60) as response:
             groq_result = json.loads(response.read().decode('utf-8'))
         
         # Parse Groq response
@@ -357,41 +432,41 @@ def generate_campaign_with_cascade(goal: str, messages: List[Dict[str, str]] = N
                         # Pass messages through without mutation
                         campaign_data['messages'] = messages if messages else []
                         
-                        logger.info("✅ TIER 2 SUCCESS: Groq GPT-OSS 120B delivered")
+                        logger.info("✅ TIER 3 SUCCESS: Groq GPT-OSS 120B delivered")
                         return campaign_data
         
         raise Exception("Groq response structure invalid")
     
-    except Exception as e2:
-        logger.warning(f"⚠️ TIER 2 FAILED: {str(e2)}")
-        logger.info("→ Cascading to TIER 3...")
+    except Exception as e3:
+        logger.warning(f"⚠️ TIER 3 FAILED: {str(e3)}")
+        logger.info("→ Cascading to TIER 4...")
     
     # ========================================================================
-    # TIER 3: OPENROUTER ARCEE TRINITY LARGE (Tertiary - 400B Creative King)
+    # TIER 4: OPENROUTER ARCEE TRINITY LARGE (Tertiary - 400B Creative King)
     # ========================================================================
     
     try:
-        logger.info("🔷 TIER 3: Attempting OpenRouter Arcee Trinity Large...")
+        logger.info("🔷 TIER 4: Attempting OpenRouter Arcee Trinity Large...")
         
-        openrouter_api_key = os.environ.get('OPENROUTER_API_KEY', '')
+        openrouter_api_key = OPENROUTER_API_KEY
         
         if not openrouter_api_key:
             raise Exception("OPENROUTER_API_KEY not configured")
         
         openrouter_url = "https://openrouter.ai/api/v1/chat/completions"
         
-        # Pure stateless prompt for OpenRouter
-        api_messages = [
+        # Pure stateless prompt for OpenRouter (NO message history)
+        stateless_messages = [
             {"role": "system", "content": SYSTEM_PROMPT},
-            {"role": "user", "content": f"Task: Create a viral Hinglish social media campaign for the following goal: {goal}\n\nReturn ONLY valid JSON with keys: hook, offer, cta, captions (array of 3)."}
+            {"role": "user", "content": f"Task: Create a viral Hinglish social media campaign for the following goal: {goal}\n\nReturn ONLY valid JSON with keys: hook, offer, cta, captions (array of 3), image_prompt."}
         ]
         
         openrouter_payload = {
-            "model": OPENROUTER_MODEL,
-            "messages": api_messages,
+            "model": "arcee-ai/trinity-large-preview",
+            "messages": stateless_messages,
             "response_format": {"type": "json_object"},
             "temperature": 0.7,
-            "max_tokens": 1024
+            "max_tokens": 2048
         }
         
         openrouter_request = Request(
@@ -407,7 +482,7 @@ def generate_campaign_with_cascade(goal: str, messages: List[Dict[str, str]] = N
             method='POST'
         )
         
-        with urlopen(openrouter_request, timeout=15) as response:
+        with urlopen(openrouter_request, timeout=60) as response:
             openrouter_result = json.loads(response.read().decode('utf-8'))
         
         # Parse OpenRouter response
@@ -422,41 +497,41 @@ def generate_campaign_with_cascade(goal: str, messages: List[Dict[str, str]] = N
                         # Pass messages through without mutation
                         campaign_data['messages'] = messages if messages else []
                         
-                        logger.info("✅ TIER 3 SUCCESS: OpenRouter Arcee Trinity Large delivered")
+                        logger.info("✅ TIER 4 SUCCESS: OpenRouter Arcee Trinity Large delivered")
                         return campaign_data
         
         raise Exception("OpenRouter response structure invalid")
     
-    except Exception as e3:
-        logger.warning(f"⚠️ TIER 3 FAILED: {str(e3)}")
-        logger.info("→ Deploying TIER 4 THE SHIELD...")
+    except Exception as e4:
+        logger.warning(f"⚠️ TIER 4 FAILED: {str(e4)}")
+        logger.info("→ Deploying TIER 5 THE SHIELD...")
     
     # ========================================================================
-    # TIER 4: LLAMA 3.3 70B - THE SHIELD (Ultra Reliable)
+    # TIER 5: LLAMA 3.3 70B - THE SHIELD (Ultra Reliable)
     # ========================================================================
     
     try:
-        logger.info("🛡️ TIER 4: Attempting OpenRouter Llama 3.3 70B (The Shield)...")
+        logger.info("🛡️ TIER 5: Attempting OpenRouter Llama 3.3 70B (The Shield)...")
         
-        openrouter_api_key = os.environ.get('OPENROUTER_API_KEY', '')
+        openrouter_api_key = OPENROUTER_API_KEY
         
         if not openrouter_api_key:
             raise Exception("OPENROUTER_API_KEY not configured")
         
         openrouter_url = "https://openrouter.ai/api/v1/chat/completions"
         
-        # Pure stateless prompt for Shield
-        api_messages = [
+        # Pure stateless prompt for Shield (NO message history)
+        stateless_messages = [
             {"role": "system", "content": SYSTEM_PROMPT},
-            {"role": "user", "content": f"Task: Create a viral Hinglish social media campaign for the following goal: {goal}\n\nReturn ONLY valid JSON with keys: hook, offer, cta, captions (array of 3)."}
+            {"role": "user", "content": f"Task: Create a viral Hinglish social media campaign for the following goal: {goal}\n\nReturn ONLY valid JSON with keys: hook, offer, cta, captions (array of 3), image_prompt."}
         ]
         
         shield_payload = {
-            "model": OPENROUTER_SHIELD_MODEL,
-            "messages": api_messages,
+            "model": "meta-llama/llama-3.3-70b-instruct:free",
+            "messages": stateless_messages,
             "response_format": {"type": "json_object"},
             "temperature": 0.7,
-            "max_tokens": 1024
+            "max_tokens": 2048
         }
         
         shield_request = Request(
@@ -472,7 +547,7 @@ def generate_campaign_with_cascade(goal: str, messages: List[Dict[str, str]] = N
             method='POST'
         )
         
-        with urlopen(shield_request, timeout=15) as response:
+        with urlopen(shield_request, timeout=60) as response:
             shield_result = json.loads(response.read().decode('utf-8'))
         
         # Parse Shield response
@@ -487,58 +562,23 @@ def generate_campaign_with_cascade(goal: str, messages: List[Dict[str, str]] = N
                         # Pass messages through without mutation
                         campaign_data['messages'] = messages if messages else []
                         
-                        logger.info("✅ TIER 4 SUCCESS: Llama 3.3 70B Shield delivered")
+                        logger.info("✅ TIER 5 SUCCESS: Llama 3.3 70B Shield delivered")
                         return campaign_data
         
         raise Exception("Shield response structure invalid")
     
-    except Exception as e4:
-        logger.warning(f"⚠️ TIER 4 FAILED: {str(e4)}")
-        logger.info("→ Deploying TITANIUM SHIELD MOCK DATA...")
+    except Exception as e5:
+        logger.warning(f"⚠️ TIER 5 FAILED: {str(e5)}")
+        logger.info("→ Deploying TIER 6 TITANIUM SHIELD MOCK DATA...")
     
     # ========================================================================
-    # TITANIUM SHIELD: INTELLIGENT MOCK DATA (Terminal Fallback)
+    # TIER 6: TITANIUM SHIELD - INTELLIGENT MOCK DATA (Terminal Fallback)
     # ========================================================================
     
-    logger.info("🛡️ TITANIUM SHIELD: MOCK DATA ACTIVATED")
+    logger.info("🛡️ TIER 6: TITANIUM SHIELD MOCK DATA ACTIVATED")
     
-    # Intelligent mock data based on goal keywords
-    goal_lower = goal.lower()
-    
-    mock_response = None
-    if any(word in goal_lower for word in ['tech', 'hackathon', 'coding', 'ai', 'ml', 'workshop']):
-        mock_response = {
-            "hook": "🚀 Ready to dominate your campus tech scene?",
-            "offer": "Exclusive AI & ML workshop strategies dropping now!",
-            "cta": "Join the tech revolution today!",
-            "captions": [
-                "Bhai log, time to build! 💻🔥 AI workshop mein aao, future banao! #AIforBharat",
-                "From dorm rooms to board rooms. Tech skills upgrade karo! 🚀 Register now!",
-                "Campus tech fests just got an AI upgrade 🤖✨ Miss mat karo, join karo!"
-            ]
-        }
-    elif any(word in goal_lower for word in ['fest', 'festival', 'celebration', 'party', 'event']):
-        mock_response = {
-            "hook": "🎉 Campus fest season is here, are you ready?",
-            "offer": "3 days of music, dance, food, and unlimited fun!",
-            "cta": "Book your passes now before they're gone!",
-            "captions": [
-                "Arre yaar, fest aa raha hai! 🎉 Music, dance, food - sab kuch ek jagah. Passes book karo! 🔥",
-                "College fest ka maza loot lo! Squad ke saath unlimited masti. Miss mat karna! 💯✨",
-                "Celebration time! Best performances, amazing food, aur dhamaal. Register abhi! 🚀🎊"
-            ]
-        }
-    else:
-        mock_response = {
-            "hook": "🚀 Ready to dominate your campus?",
-            "offer": "Exclusive strategies and opportunities dropping now!",
-            "cta": "Join the revolution today!",
-            "captions": [
-                "Bhai log, time to build! 💻🔥 Opportunities aa rahe hain, grab karo! #Campus",
-                "From dorm rooms to board rooms. Let's go! 🚀 Success ka shortcut yahi hai!",
-                "Campus life just got an upgrade 🤖✨ Miss mat karo, join the movement!"
-            ]
-        }
+    # Get intelligent mock data based on goal keywords
+    mock_response = get_mock_campaign(goal)
     
     # Pass messages through without mutation
     mock_response['messages'] = messages if messages else []
@@ -562,34 +602,6 @@ def parse_captions(text: str) -> List[str]:
         captions.extend([captions[0]] * (3 - len(captions)))
     
     return captions[:3]
-
-
-# ============================================================================
-# IMAGE GENERATION (Unsplash Fallback)
-# ============================================================================
-
-def get_campaign_image(goal: str) -> str:
-    """
-    Get campaign image URL based on goal.
-    
-    Uses curated Unsplash images for reliability.
-    
-    Args:
-        goal: User's campaign goal
-    
-    Returns:
-        Unsplash image URL
-    """
-    goal_lower = goal.lower()
-    
-    if any(word in goal_lower for word in ['tech', 'hackathon', 'coding', 'ai', 'ml']):
-        return "https://images.unsplash.com/photo-1540575467063-178a50c2df87?w=1024&h=1024&fit=crop"
-    elif any(word in goal_lower for word in ['fest', 'festival', 'celebration', 'party', 'event']):
-        return "https://images.unsplash.com/photo-1492684223066-81342ee5ff30?w=1024&h=1024&fit=crop"
-    elif any(word in goal_lower for word in ['workshop', 'training', 'course', 'learn', 'skill']):
-        return "https://images.unsplash.com/photo-1524178232363-1fb2b075b655?w=1024&h=1024&fit=crop"
-    else:
-        return "https://images.unsplash.com/photo-1557804506-669a67965ba0?w=1024&h=1024&fit=crop"
 
 
 # ============================================================================
@@ -691,12 +703,15 @@ def lambda_handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
         logger.info(f"Processing campaign request - User: {user_id}, Goal: {goal}")
         
         # ====================================================================
-        # 4-TIER DIAMOND CASCADE EXECUTION
+        # 6-TIER DIAMOND CASCADE EXECUTION
         # ====================================================================
         
+        # Generate unique campaign ID first (needed for deterministic seed)
+        campaign_id = str(uuid.uuid4())
+        
         try:
-            # Execute the Diamond Cascade with stateful messages
-            logger.info(f"Executing Diamond Cascade for goal: {goal}")
+            # Execute the Diamond Cascade
+            logger.info(f"Executing 6-Tier Diamond Cascade for goal: {goal}")
             logger.info(f"Conversation history: {len(messages)} messages")
             
             # Get campaign data from cascade
@@ -705,18 +720,30 @@ def lambda_handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
             logger.info("Campaign data generated successfully")
             
             # Extract campaign components
-            campaign_plan = {
-                'hook': campaign_data.get('hook', ''),
-                'offer': campaign_data.get('offer', ''),
-                'cta': campaign_data.get('cta', '')
-            }
+            hook = campaign_data.get('hook', '')
+            offer = campaign_data.get('offer', '')
+            cta = campaign_data.get('cta', '')
             captions = campaign_data.get('captions', [])
-            conversation_messages = campaign_data.get('messages', messages)  # Get updated messages
+            image_prompt = campaign_data.get('image_prompt', '')
+            conversation_messages = campaign_data.get('messages', messages)
             
-            # Get image URL based on goal
-            image_url = get_campaign_image(goal)
+            # ================================================================
+            # LIVE AI IMAGE GENERATION - Pollinations.ai
+            # ================================================================
+            if image_prompt:
+                # Create deterministic seed from campaign ID
+                seed = int(hashlib.md5(campaign_id.encode()).hexdigest(), 16) % 100000
+                
+                # Build Pollinations.ai URL with image prompt
+                image_url = f"https://image.pollinations.ai/prompt/{urllib.parse.quote(image_prompt)}?width=1024&height=1024&nologo=true&seed={seed}"
+                
+                logger.info(f"Live AI image generated with seed {seed}")
+            else:
+                # Fallback to generic image if no prompt
+                image_url = "https://images.unsplash.com/photo-1557804506-669a67965ba0?w=1024&h=1024&fit=crop"
+                logger.warning("No image_prompt in response, using fallback image")
             
-            logger.info(f"Campaign generation completed: {len(captions)} captions, image URL obtained")
+            logger.info(f"Campaign generation completed: {len(captions)} captions, live AI image generated")
         
         except Exception as cascade_error:
             # Cascade execution failed - use high-quality mock data
@@ -724,26 +751,38 @@ def lambda_handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
             logger.info("📡 [SAFETY NET] Returning high-quality mock campaign")
             
             mock_campaign = get_mock_campaign(goal)
-            campaign_plan = mock_campaign['plan']
-            captions = mock_campaign['captions']
-            image_url = mock_campaign['image_url']
+            hook = mock_campaign.get('hook', '')
+            offer = mock_campaign.get('offer', '')
+            cta = mock_campaign.get('cta', '')
+            captions = mock_campaign.get('captions', [])
+            image_prompt = mock_campaign.get('image_prompt', '')
+            conversation_messages = messages
+            
+            # Generate live AI image for mock data too
+            if image_prompt:
+                seed = int(hashlib.md5(campaign_id.encode()).hexdigest(), 16) % 100000
+                image_url = f"https://image.pollinations.ai/prompt/{urllib.parse.quote(image_prompt)}?width=1024&height=1024&nologo=true&seed={seed}"
+            else:
+                image_url = "https://images.unsplash.com/photo-1557804506-669a67965ba0?w=1024&h=1024&fit=crop"
         
         # ====================================================================
         # DYNAMODB PERSISTENCE
         # ====================================================================
-        
-        # Generate unique campaign ID
-        campaign_id = str(uuid.uuid4())
         
         # Construct campaign record with conversation history
         campaign_record = {
             'campaignId': campaign_id,
             'userId': user_id,
             'goal': goal,
-            'plan': campaign_plan,
+            'plan': {
+                'hook': hook,
+                'offer': offer,
+                'cta': cta
+            },
             'captions': captions,
             'image_url': image_url,
-            'messages': conversation_messages,  # Save conversation history
+            'image_prompt': image_prompt,
+            'messages': conversation_messages,
             'status': 'completed',
             'created_at': datetime.utcnow().isoformat()
         }
@@ -799,7 +838,7 @@ def lambda_handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
             user_id = 'anonymous'
         
         # Get high-quality mock campaign
-        mock_campaign = get_mock_campaign(goal)
+        mock_data = get_mock_campaign(goal)
         
         # Create complete campaign record with mock data
         campaign_id = str(uuid.uuid4())
@@ -807,9 +846,13 @@ def lambda_handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
             'campaignId': campaign_id,
             'userId': user_id,
             'goal': goal,
-            'plan': mock_campaign['plan'],
-            'captions': mock_campaign['captions'],
-            'image_url': mock_campaign['image_url'],
+            'plan': {
+                'hook': mock_data.get('hook', ''),
+                'offer': mock_data.get('offer', ''),
+                'cta': mock_data.get('cta', '')
+            },
+            'captions': mock_data.get('captions', []),
+            'image_url': "https://images.unsplash.com/photo-1557804506-669a67965ba0?w=1024&h=1024&fit=crop",
             'status': 'completed',
             'created_at': datetime.utcnow().isoformat(),
             'error_recovered': True
